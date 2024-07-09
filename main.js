@@ -55,7 +55,7 @@ function parseFormula(text) {
     if (curr == 'U') {
         const [left, rest1] = parseFormula(next);
         if (rest1 == '') {
-            throw new Error("Expected formula after U");
+            throw new Error("Expected 2 formulas after U");
         }
         const [right, rest2] = parseFormula(rest1);
         return [
@@ -89,7 +89,23 @@ function parseFormula(text) {
 
 function redraw() {
     const formula = document.getElementById('formula').value;
-    console.log(parseFormula(formula)[0].el);
+    const error = document.getElementById('error');
+
+    if (formula.trim() == '') {
+        error.innerText = '';
+        return;
+    }
+
+    try {
+        const [_, rest] = parseFormula(formula);
+        if (rest != '') {
+            throw new Error("There were leftover characters (" + rest + ")");
+        }
+    } catch (e) {
+        error.innerText = e;
+        return;
+    }
+    error.innerText = '';
 
     const [{ el, sat }, _] = parseFormula(formula);
 
