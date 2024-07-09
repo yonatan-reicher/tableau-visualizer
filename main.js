@@ -15,7 +15,7 @@ function parseFormula(text) {
     const curr = text[0];
     const next = text.slice(1);
 
-    if (next == '(') {
+    if (curr == '(') {
         const [inner, rest] = parseFormula(next);
         if (rest == '' || rest[0] != ')') {
             throw new Error("Expected ')'");
