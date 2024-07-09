@@ -3,7 +3,8 @@
 
 
 /*
- * Returns an object: [ { el, sat }, rest ]
+ * Returns an object: [ { el, sat, str, subU }, rest ].
+ * subU is a set of all gUh subformulas (needed for fairness).
  */
 function parseFormula(text) {
     text = text.trim();
@@ -28,6 +29,8 @@ function parseFormula(text) {
             {
                 el: new Set([curr]),
                 sat: (state) => state.has(curr),
+                str: curr,
+                subU: new Set(),
             },
             next
         ];
@@ -39,6 +42,8 @@ function parseFormula(text) {
             {
                 el: inner.el,
                 sat: state => !inner.sat(state),
+                str: '-' + inner.str,
+                subU: inner.subU,
             },
             rest
         ];
@@ -47,9 +52,13 @@ function parseFormula(text) {
     if (curr == 'X') {
         const [inner, rest] = parseFormula(next);
         const el = new Set(inner.el);
-        el.add(text);
-        const sat = state => state.has(text);
-        return [{ el, sat }, rest];
+        const str = 'X' + inner.str;
+        el.add(str);
+        const sat = state => state.has(str);
+        return [
+            { el, sat, str, subU: inner.subU },
+            rest
+        ];
     }
 
     if (curr == 'U') {
@@ -58,14 +67,17 @@ function parseFormula(text) {
             throw new Error("Expected 2 formulas after U");
         }
         const [right, rest2] = parseFormula(rest1);
+        const str = 'U' + left.str + right.str;
         return [
             {
-                el: new Set(['X' + text, ...left.el, ...right.el]),
+                el: new Set(['X' + str, ...left.el, ...right.el]),
                 sat: (state) => (
                     right.sat(state) || (
-                        left.sat(state) && state.has('X' + text)
+                        left.sat(state) && state.has('X' + str)
                     )
                 ),
+                str,
+                subU: new Set([...left.subU, ...right.subU, [left, right]]),
             },
             rest2
         ];
@@ -77,10 +89,13 @@ function parseFormula(text) {
             throw new Error("Expected 2 formulas after &");
         }
         const [right, rest2] = parseFormula(rest1);
+        const str = '&' + left.str + right.str;
         return [
             {
                 el: new Set([...left.el, ...right.el]),
                 sat: (state) => left.sat(state) && right.sat(state),
+                str,
+                subU: new Set([...left.subU, ...right.subU]),
             },
             rest2
         ];
@@ -107,7 +122,7 @@ function redraw() {
     }
     error.innerText = '';
 
-    const [{ el, sat }, _] = parseFormula(formula);
+    const [{ el, sat, str, subU }, _] = parseFormula(formula);
 
     // Taken from stackoverflow
     const subsets = array =>
@@ -122,10 +137,29 @@ function redraw() {
         return '' + Array.from(v);
     }
 
+    /*
+    function is_fair_state(state) {
+        let i = 0;
+        for (const [a, b] of subU) {
+            const [not_until, _] = parseFormula('-U' + a.str + b.str);
+            const is_fair_on_a_b = b.sat(state) || not_until.sat(state);
+            if (!is_fair_on_a_b) {
+                return false;
+            }
+            i++;
+        }
+        return true;
+    }
+    */
+
     const nodes = new vis.DataSet(
         states.map(x => {
             const s = vToStr(x);
-            return { id: s, label: s };
+            const group =
+                sat(x) ? 'initial' : 
+                //is_fair_state(x) ? 'fair' :
+                'default';
+            return { id: s, label: s, group };
         })
     );
 
@@ -182,6 +216,20 @@ function redraw() {
             },
         },
         physics: false,
+        groups: {
+            initial: {
+                color: {
+                    background: 'lightgreen',
+                    border: 'black',
+                },
+            },
+            fair: {
+                color: {
+                    background: 'yellow',
+                    border: 'black',
+                },
+            },
+        },
     };
 
     // initialize your network!
