@@ -100,6 +100,23 @@ function parseFormula(text) {
             rest2
         ];
     }
+
+    if (curr == '|') {
+        const [left, rest1] = parseFormula(next);
+        if (rest1 == '') {
+            throw new Error("Expected 2 formulas after |");
+        }
+        const [right, rest2] = parseFormula(rest1);
+        return [
+            {
+                el: new Set([...left.el, ...right.el]),
+                sat: state => left.sat(state) || right.sat(state),
+                str: '|' + left.str + right.str,
+                subU: new Set([...left.subU, ...right.subU]),
+            },
+            rest2
+        ]
+    }
 }
 
 function redraw() {
